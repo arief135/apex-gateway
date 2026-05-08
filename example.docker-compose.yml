@@ -1,0 +1,112 @@
+version: "3.9"
+
+services:
+  # ── API Gateway ───────────────────────────────────────────────────────────
+  gateway:
+    build: .
+    ports:
+      - "8080:8080"    # HTTP proxy
+      - "8443:8443"    # HTTPS proxy (optional, needs TLS certs)
+      - "9090:9090"    # Admin API
+    environment:
+      GATEWAY_POSTGRES_DSN: "postgres://gateway:gateway@postgres:5432/gateway?sslmode=disable"
+      GATEWAY_REDIS_ADDR: "redis:6379"
+      GATEWAY_KAFKA_ENABLED: "true"
+      GATEWAY_JWT_SECRET: "super-secret-change-in-production"
+      GATEWAY_LOG_LEVEL: "debug"
+      GATEWAY_LOG_FORMAT: "console"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - gateway-net
+
+  # ── PostgreSQL ────────────────────────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: gateway
+      POSTGRES_PASSWORD: gateway
+      POSTGRES_DB: gateway
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U gateway"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - gateway-net
+
+  # ── Redis ─────────────────────────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    command: redis-server --save 60 1 --loglevel warning
+    volumes:
+      - redis_data:/data
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    networks:
+      - gateway-net
+
+  # ── Kafka (KRaft mode — no ZooKeeper) ────────────────────────────────────
+  kafka:
+    image: bitnami/kafka:3.7
+    environment:
+      KAFKA_CFG_NODE_ID: "1"
+      KAFKA_CFG_PROCESS_ROLES: "controller,broker"
+      KAFKA_CFG_LISTENERS: "PLAINTEXT://:9092,CONTROLLER://:9093"
+      KAFKA_CFG_ADVERTISED_LISTENERS: "PLAINTEXT://kafka:9092"
+      KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP: "CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT"
+      KAFKA_CFG_CONTROLLER_QUORUM_VOTERS: "1@kafka:9093"
+      KAFKA_CFG_CONTROLLER_LISTENER_NAMES: "CONTROLLER"
+      KAFKA_CFG_AUTO_CREATE_TOPICS_ENABLE: "true"
+      KAFKA_CFG_LOG_RETENTION_HOURS: "168"
+    volumes:
+      - kafka_data:/bitnami/kafka
+    ports:
+      - "9092:9092"
+    healthcheck:
+      test: ["CMD-SHELL", "kafka-broker-api-versions.sh --bootstrap-server localhost:9092 2>/dev/null | grep -q '0 (NONE)'"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+    networks:
+      - gateway-net
+
+  # ── ClickHouse (analytics) ────────────────────────────────────────────────
+  clickhouse:
+    image: clickhouse/clickhouse-server:24.3-alpine
+    environment:
+      CLICKHOUSE_USER: gateway
+      CLICKHOUSE_PASSWORD: gateway
+      CLICKHOUSE_DB: gateway
+    volumes:
+      - clickhouse_data:/var/lib/clickhouse
+    ports:
+      - "8123:8123"   # HTTP interface
+      - "9000:9000"   # native protocol
+    networks:
+      - gateway-net
+
+networks:
+  gateway-net:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  redis_data:
+  kafka_data:
+  clickhouse_data:
