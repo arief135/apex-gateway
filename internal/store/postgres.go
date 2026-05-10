@@ -289,7 +289,7 @@ var ErrNotFound = fmt.Errorf("not found")
 const schema = `
 CREATE TABLE IF NOT EXISTS routes (
 	id            TEXT PRIMARY KEY,
-	name          TEXT NOT NULL,
+	name          TEXT NOT NULL UNIQUE,
 	path_pattern  TEXT NOT NULL,
 	methods       JSONB NOT NULL DEFAULT '["ANY"]',
 	protocol      TEXT NOT NULL DEFAULT 'HTTP',
