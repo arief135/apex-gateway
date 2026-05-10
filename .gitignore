@@ -4,3 +4,4 @@ start.sh
 .vscode/
 cmd/gateway/__debug_*
 apex-gateway.code-workspace
+.DS_Store
