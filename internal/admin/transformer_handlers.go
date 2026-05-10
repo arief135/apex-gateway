@@ -176,7 +176,7 @@ func (h *Handlers) TestTransformer(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	eng := transform.New()
+	eng := transform.NewEngine()
 	out, elapsed, err := eng.Test(req.Script, payloadBytes, tctx)
 
 	resp := models.TransformTestResponse{ElapsedMs: elapsed.Milliseconds()}

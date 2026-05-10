@@ -124,7 +124,7 @@ func InvalidateCache(transformerID string) {
 type Engine struct{}
 
 // New returns a ready Engine.
-func New() *Engine { return &Engine{} }
+func NewEngine() *Engine { return &Engine{} }
 
 // Apply runs a single transformer script against the given JSON payload.
 //

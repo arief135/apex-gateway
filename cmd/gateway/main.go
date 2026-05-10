@@ -15,7 +15,8 @@ import (
 	"apnv.id/apex/api-gateway/internal/gateway"
 	"apnv.id/apex/api-gateway/internal/logger"
 	"apnv.id/apex/api-gateway/internal/store"
-	
+	"apnv.id/apex/api-gateway/internal/transform"
+
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 )
@@ -82,7 +83,7 @@ func main() {
 	log.Info().Dur("ttl", cfg.Gateway.RouteConfigTTL).Msg("route table loaded")
 
 	// ── Proxy ──────────────────────────────────────────────────────────────
-	proxy := gateway.NewProxy(router, cache, tlog)
+	proxy := gateway.NewProxy(router, cache, tlog, transform.NewEngine(), transform.NewLoader(routeStore, cache))
 
 	// ── Admin API ──────────────────────────────────────────────────────────
 	adminHandlers := admin.NewHandlers(routeStore, cache, router, tlog)
